@@ -7,80 +7,69 @@
 
 #####################################################
 
-# Libraries
 import cv2
 import numpy as np
-#import matplotlib.pyplot as plt
 import keyboard
 from time import sleep
 
-# Constants
-WIDTH = 75
-HEIGHT = 50
+WIDTH = 120
+HEIGHT = 90
 
-
-# Functions
-def convert_to_ascii(c,brightness):
-    # Convert each pixel brightness to an ASCII character
-    if c == 1:
-        charSET = ".~+:!&$%@#"  # 10 Characters ordered Light -> Dark
-    else:
-        charSET = "#@%$&!:++~."  # 10 Characters ordered Dark -> Light
-    char = charSET[int(brightness/25.5)]  # Brightness Value 0 and 255 spilt into 10 equal intervals
+def convert_to_ascii(c, brightness):
+    charSET = ".~+:!&$%@#"  # 10 Characters ordered Light -> Dark
+    index = int(brightness / 25.5)
+    if index >= len(charSET):
+        index = len(charSET) - 1
+    char = charSET[index]
     return char
+
+def contrast_stretching(image):
+    # Convert image to grayscale
+    # gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Apply contrast stretching
+    min_val = np.min(image)
+    max_val = np.max(image)
+    stretched = cv2.convertScaleAbs(image, alpha=255.0/(max_val-min_val), beta=-255.0*min_val/(max_val-min_val))
+
+    return stretched
 
 
 def main():
-    # Open webcam
     cap = cv2.VideoCapture(0)
-    c = 0
+    c = 1  # 1 for Light -> Dark, 0 for Dark -> Light
+
     while True:
-        # Read webcam feed
+        blk_image = np.zeros((800, 1200, 3), np.uint8)
         ret, frame = cap.read()
-
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        cv2.imshow('frame', gray)
-
-        resized = cv2.resize(gray, (WIDTH, HEIGHT))
-        
-        # Display resized in a live Open CV window
-        # For each pixel in resized, calculate the brightness and convert to ASCII
+        stretched = contrast_stretching(gray)  # Apply contrast stretching
+        # cv2.imshow('frame', frame)
+        resized = cv2.resize(stretched, (WIDTH, HEIGHT))
         ascii_image = []
 
         for col in range(HEIGHT):
-        
             ascii_row = []
-            
             for row in range(WIDTH):
-                
-                # Take the Pixel in the col and row and calculate the greyscale brightness value
                 brightness = resized[col][row]
-
-                # Convert the brightness to an ASCII character using the convert_to_ascii function
-                ascii_char = convert_to_ascii(c,brightness)
-
-                # Append the ASCII character to the row
+                ascii_char = convert_to_ascii(c, brightness)
                 ascii_row.append(ascii_char)
-
-            # Assign the row to the corresponding row in the ASCII image
             ascii_image.append(ascii_row)
 
-        # Print the ASCII image to the console
-        for row in ascii_image:
-            print("".join(row))
+        for y, row in enumerate(ascii_image):
+            for x, char in enumerate(row):
+                cv2.putText(blk_image, char, (x * 10, y * 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
 
-        if keyboard.is_pressed('space'):
-            if c == 0:
-                c = 1
-            else:
-                c = 0
+        cv2.imshow('ASCII', blk_image)
+
+        # if keyboard.is_pressed('space'):
+            
 
         if cv2.waitKey(1) & 0xFF == ord('q') or keyboard.is_pressed('q'):
             break
 
-        sleep(0.06)
+        sleep(0.01)
 
-    # Release webcam
     cap.release()
     cv2.destroyAllWindows()
 
